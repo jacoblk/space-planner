@@ -169,15 +169,26 @@ export const Canvas: React.FC<CanvasProps> = ({
         ctx.fill();
         ctx.stroke();
 
-        // Draw crosshairs
+        // Draw rotating arrow icon
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+
+        // Draw circular arrow (270 degree arc)
         ctx.beginPath();
-        ctx.moveTo(handlePos.x - 5, handlePos.y);
-        ctx.lineTo(handlePos.x + 5, handlePos.y);
-        ctx.moveTo(handlePos.x, handlePos.y - 5);
-        ctx.lineTo(handlePos.x, handlePos.y + 5);
+        ctx.arc(handlePos.x, handlePos.y, 4, -Math.PI / 4, (3 * Math.PI) / 2, false);
         ctx.stroke();
+
+        // Draw arrowhead
+        const arrowX = handlePos.x - 4 * Math.cos(Math.PI / 4);
+        const arrowY = handlePos.y - 4 * Math.sin(Math.PI / 4);
+        ctx.beginPath();
+        ctx.moveTo(arrowX, arrowY);
+        ctx.lineTo(arrowX - 2, arrowY - 2);
+        ctx.moveTo(arrowX, arrowY);
+        ctx.lineTo(arrowX + 2, arrowY - 2);
+        ctx.stroke();
+
         ctx.restore();
       }
     });
@@ -198,6 +209,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (selectedObject && isPointOnRotationHandle(screenPoint, selectedObject, viewport)) {
       setMode('dragging-rotation');
       setDraggedObjectId(selectedObject.id);
+      setDragStart(screenPoint);
       const worldPoint = screenToWorld(screenX, screenY, viewport);
       setRotationStartAngle(
         calculateRotationAngle(selectedObject.position, worldPoint) - selectedObject.rotation
