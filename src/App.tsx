@@ -545,22 +545,24 @@ export const App: React.FC = () => {
             onResetViewReady={(resetFn) => setResetViewFn(() => resetFn)}
             showLabels={showLabels}
           />
-          <PolygonDesigner
-            editState={polygonEditState}
-            onEnterEditMode={handleEnterPolygonEditMode}
-            onExitEditMode={handleExitPolygonEditMode}
-            onMeasurementInput={handleMeasurementInput}
-            onResetView={resetViewFn}
-            currentPolygonPoints={
-              polygonEditState
-                ? polygonEditState.target.type === 'space'
-                  ? appState.space.outline.points
-                  : appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId)?.shape.points || []
-                : []
-            }
-            showLabels={showLabels}
-            onToggleLabels={() => setShowLabels(!showLabels)}
-          />
+          {(!isMobile || (!showLeftPanel && !showRightPanel)) && (
+            <PolygonDesigner
+              editState={polygonEditState}
+              onEnterEditMode={handleEnterPolygonEditMode}
+              onExitEditMode={handleExitPolygonEditMode}
+              onMeasurementInput={handleMeasurementInput}
+              onResetView={resetViewFn}
+              currentPolygonPoints={
+                polygonEditState
+                  ? polygonEditState.target.type === 'space'
+                    ? appState.space.outline.points
+                    : appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId)?.shape.points || []
+                  : []
+              }
+              showLabels={showLabels}
+              onToggleLabels={() => setShowLabels(!showLabels)}
+            />
+          )}
         </div>
       </div>
 
