@@ -2,7 +2,7 @@
  * Main App component - state management and layout
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppState, SpaceObject, Point } from './types';
 import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
@@ -10,8 +10,10 @@ import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';
 import { getPolygonCenter } from './geometry';
 
+const STORAGE_KEY = 'space-planner-state';
+
 // Initial state with a 12' × 10' room and a 6' × 3' sofa
-const initialState: AppState = {
+const getDefaultState = (): AppState => ({
   space: {
     outline: {
       points: [
@@ -40,10 +42,36 @@ const initialState: AppState = {
     }
   ],
   selectedObjectId: null
+});
+
+// Load state from localStorage, fallback to default if not available or corrupted
+const loadInitialState = (): AppState => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Basic validation to ensure it has the expected structure
+      if (parsed && parsed.space && parsed.objects && Array.isArray(parsed.objects)) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load state from localStorage:', error);
+  }
+  return getDefaultState();
 };
 
 export const App: React.FC = () => {
-  const [appState, setAppState] = useState<AppState>(initialState);
+  const [appState, setAppState] = useState<AppState>(loadInitialState);
+
+  // Save to localStorage whenever appState changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    } catch (error) {
+      console.error('Failed to save state to localStorage:', error);
+    }
+  }, [appState]);
 
   // Get selected object
   const selectedObject = appState.objects.find(
