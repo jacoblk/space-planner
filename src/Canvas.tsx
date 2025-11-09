@@ -148,10 +148,37 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       ctx.restore();
 
+      // Draw label
+      const centerScreen = worldToScreen(obj.position, viewport);
+      ctx.save();
+      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Measure text for background
+      const textMetrics = ctx.measureText(obj.name);
+      const padding = 6;
+      const bgWidth = textMetrics.width + padding * 2;
+      const bgHeight = 20;
+
+      // Draw semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(
+        centerScreen.x - bgWidth / 2,
+        centerScreen.y - bgHeight / 2,
+        bgWidth,
+        bgHeight
+      );
+
+      // Draw text
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(obj.name, centerScreen.x, centerScreen.y);
+
+      ctx.restore();
+
       // Draw rotation handle for selected object
       if (isSelected) {
         const handlePos = getRotationHandlePosition(obj, viewport);
-        const centerScreen = worldToScreen(obj.position, viewport);
 
         // Draw line from object to handle
         ctx.save();
