@@ -9,7 +9,9 @@ import {
   Viewport,
   InteractionMode,
   Point,
-  ScreenPoint
+  ScreenPoint,
+  PolygonEditState,
+  Polygon
 } from './types';
 import {
   worldToScreen,
@@ -31,6 +33,10 @@ interface CanvasProps {
   onSelectObject: (id: string | null) => void;
   onUpdateObjectPosition: (id: string, position: Point) => void;
   onUpdateObjectRotation: (id: string, rotation: number) => void;
+  polygonEditState: PolygonEditState | null;
+  onUpdatePolygonEditState: (state: PolygonEditState | null) => void;
+  onUpdateSpaceOutline: (outline: Polygon) => void;
+  onUpdateObjectShape: (id: string, shape: Polygon) => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -39,7 +45,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   selectedObjectId,
   onSelectObject,
   onUpdateObjectPosition,
-  onUpdateObjectRotation
+  onUpdateObjectRotation,
+  polygonEditState,
+  onUpdatePolygonEditState,
+  onUpdateSpaceOutline,
+  onUpdateObjectShape
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +72,10 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
   const [initialPinchZoom, setInitialPinchZoom] = useState<number>(1);
   const [initialPinchCenter, setInitialPinchCenter] = useState<ScreenPoint | null>(null);
+
+  // Polygon editing state
+  const [mousePosition, setMousePosition] = useState<ScreenPoint | null>(null);
+  const [vertexDragStart, setVertexDragStart] = useState<Point | null>(null);
 
   // Calculate initial viewport to fit space
   useEffect(() => {
@@ -86,6 +100,88 @@ export const Canvas: React.FC<CanvasProps> = ({
       scale: baseScale
     }));
   }, [space]);
+
+  // Helper functions for polygon editing
+  const getEditingPolygonWorldPoints = (): Point[] | null => {
+    if (!polygonEditState) return null;
+    if (polygonEditState.target.type === 'space') {
+      return space.outline.points;
+    } else {
+      const obj = objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId);
+      if (!obj) return null;
+      // For objects, we need to transform shape points to world coordinates
+      return getObjectWorldPolygon(obj).points;
+    }
+  };
+
+  const findVertexAtPoint = (screenPoint: ScreenPoint): number | null => {
+    const worldPoints = getEditingPolygonWorldPoints();
+    if (!worldPoints) return null;
+
+    const hitRadius = 10; // pixels
+
+    for (let i = 0; i < worldPoints.length; i++) {
+      const screenPos = worldToScreen(worldPoints[i], viewport);
+      const dx = screenPos.x - screenPoint.x;
+      const dy = screenPos.y - screenPoint.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance <= hitRadius) {
+        return i;
+      }
+    }
+
+    return null;
+  };
+
+  const findEdgeAtPoint = (screenPoint: ScreenPoint): number | null => {
+    const worldPoints = getEditingPolygonWorldPoints();
+    if (!worldPoints) return null;
+
+    const hitRadius = 8; // pixels
+
+    for (let i = 0; i < worldPoints.length; i++) {
+      const p1 = worldPoints[i];
+      const p2 = worldPoints[(i + 1) % worldPoints.length];
+      const s1 = worldToScreen(p1, viewport);
+      const s2 = worldToScreen(p2, viewport);
+
+      // Calculate distance from point to line segment
+      const A = screenPoint.x - s1.x;
+      const B = screenPoint.y - s1.y;
+      const C = s2.x - s1.x;
+      const D = s2.y - s1.y;
+
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = -1;
+
+      if (lenSq !== 0) param = dot / lenSq;
+
+      let xx, yy;
+
+      if (param < 0) {
+        xx = s1.x;
+        yy = s1.y;
+      } else if (param > 1) {
+        xx = s2.x;
+        yy = s2.y;
+      } else {
+        xx = s1.x + param * C;
+        yy = s1.y + param * D;
+      }
+
+      const dx = screenPoint.x - xx;
+      const dy = screenPoint.y - yy;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance <= hitRadius && param >= 0 && param <= 1) {
+        return i;
+      }
+    }
+
+    return null;
+  };
 
   // Render canvas
   useEffect(() => {
@@ -225,7 +321,70 @@ export const Canvas: React.FC<CanvasProps> = ({
         ctx.restore();
       }
     });
-  }, [space, objects, selectedObjectId, viewport]);
+
+    // Draw polygon editing UI
+    if (polygonEditState) {
+      const worldPoints = getEditingPolygonWorldPoints();
+      if (worldPoints) {
+        // Draw edges with highlight
+        ctx.save();
+        worldPoints.forEach((point, i) => {
+          const nextPoint = worldPoints[(i + 1) % worldPoints.length];
+          const s1 = worldToScreen(point, viewport);
+          const s2 = worldToScreen(nextPoint, viewport);
+
+          const isHoveredEdge = polygonEditState.hoveredEdgeIndex === i;
+          const isMeasurementEdge = polygonEditState.measurementEdgeIndex === i;
+
+          ctx.strokeStyle = isMeasurementEdge ? '#10b981' : (isHoveredEdge ? '#f59e0b' : '#4080ff');
+          ctx.lineWidth = isHoveredEdge || isMeasurementEdge ? 4 : 3;
+          ctx.beginPath();
+          ctx.moveTo(s1.x, s1.y);
+          ctx.lineTo(s2.x, s2.y);
+          ctx.stroke();
+
+          // Draw edge midpoint for adding vertices
+          if (isHoveredEdge) {
+            const midX = (s1.x + s2.x) / 2;
+            const midY = (s1.y + s2.y) / 2;
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(midX, midY, 6, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        });
+        ctx.restore();
+
+        // Draw vertices
+        ctx.save();
+        worldPoints.forEach((point, i) => {
+          const screenPos = worldToScreen(point, viewport);
+          const isHovered = polygonEditState.hoveredVertexIndex === i;
+          const isDragged = polygonEditState.draggedVertexIndex === i;
+
+          ctx.fillStyle = isDragged ? '#ef4444' : (isHovered ? '#f59e0b' : '#4080ff');
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(screenPos.x, screenPos.y, isDragged || isHovered ? 8 : 6, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+
+          // Draw vertex label
+          ctx.fillStyle = '#000';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(i + 1), screenPos.x, screenPos.y - 15);
+        });
+        ctx.restore();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [space, objects, selectedObjectId, viewport, polygonEditState, mousePosition]);
 
   // Handle mouse down
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -236,6 +395,68 @@ export const Canvas: React.FC<CanvasProps> = ({
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
     const screenPoint: ScreenPoint = { x: screenX, y: screenY };
+
+    // Handle polygon editing mode
+    if (polygonEditState) {
+      // Check if clicking on a vertex
+      const vertexIndex = findVertexAtPoint(screenPoint);
+      if (vertexIndex !== null) {
+        setMode('dragging-vertex');
+        const worldPoints = getEditingPolygonWorldPoints();
+        if (worldPoints) {
+          setVertexDragStart(worldPoints[vertexIndex]);
+          onUpdatePolygonEditState({
+            ...polygonEditState,
+            draggedVertexIndex: vertexIndex,
+            measurementEdgeIndex: null
+          });
+        }
+        setDragStart(screenPoint);
+        return;
+      }
+
+      // Check if clicking on an edge
+      const edgeIndex = findEdgeAtPoint(screenPoint);
+      if (edgeIndex !== null) {
+        // If shift is held, add a new vertex
+        if (e.shiftKey) {
+          const worldPoint = screenToWorld(screenX, screenY, viewport);
+          const worldPoints = getEditingPolygonWorldPoints();
+          if (worldPoints) {
+            const newPoints = [...worldPoints];
+            newPoints.splice(edgeIndex + 1, 0, worldPoint);
+
+            if (polygonEditState.target.type === 'space') {
+              onUpdateSpaceOutline({ points: newPoints });
+            } else {
+              // For objects, we need to convert back to object-local coordinates
+              const targetObjectId = (polygonEditState.target as { type: 'object'; objectId: string }).objectId;
+              const obj = objects.find(o => o.id === targetObjectId);
+              if (obj) {
+                // Transform world points back to object-local coordinates
+                const localPoints = newPoints.map(p => {
+                  const dx = p.x - obj.position.x;
+                  const dy = p.y - obj.position.y;
+                  const angle = -obj.rotation * Math.PI / 180;
+                  return {
+                    x: Math.round(dx * Math.cos(angle) - dy * Math.sin(angle)),
+                    y: Math.round(dx * Math.sin(angle) + dy * Math.cos(angle))
+                  };
+                });
+                onUpdateObjectShape(targetObjectId, { points: localPoints });
+              }
+            }
+          }
+        } else {
+          // Otherwise, select edge for measurement
+          onUpdatePolygonEditState({
+            ...polygonEditState,
+            measurementEdgeIndex: edgeIndex
+          });
+        }
+        return;
+      }
+    }
 
     // Check if clicking rotation handle
     const selectedObject = objects.find(obj => obj.id === selectedObjectId);
@@ -272,11 +493,72 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Handle mouse move
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas || !dragStart) return;
+    if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
+    const screenPoint: ScreenPoint = { x: screenX, y: screenY };
+
+    setMousePosition(screenPoint);
+
+    // Update hover state in polygon editing mode
+    if (polygonEditState && mode === 'idle') {
+      const vertexIndex = findVertexAtPoint(screenPoint);
+      const edgeIndex = vertexIndex === null ? findEdgeAtPoint(screenPoint) : null;
+
+      if (polygonEditState.hoveredVertexIndex !== vertexIndex ||
+          polygonEditState.hoveredEdgeIndex !== edgeIndex) {
+        onUpdatePolygonEditState({
+          ...polygonEditState,
+          hoveredVertexIndex: vertexIndex,
+          hoveredEdgeIndex: edgeIndex
+        });
+      }
+    }
+
+    if (!dragStart) return;
+
+    // Handle vertex dragging
+    if (mode === 'dragging-vertex' && polygonEditState && vertexDragStart) {
+      const dx = screenX - dragStart.x;
+      const dy = screenY - dragStart.y;
+
+      const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
+      const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
+
+      const newPoint: Point = {
+        x: Math.round(vertexDragStart.x + worldDx),
+        y: Math.round(vertexDragStart.y + worldDy)
+      };
+
+      const worldPoints = getEditingPolygonWorldPoints();
+      if (worldPoints && polygonEditState.draggedVertexIndex !== null) {
+        const newPoints = [...worldPoints];
+        newPoints[polygonEditState.draggedVertexIndex] = newPoint;
+
+        if (polygonEditState.target.type === 'space') {
+          onUpdateSpaceOutline({ points: newPoints });
+        } else {
+          // For objects, convert back to object-local coordinates
+          const targetObjectId = (polygonEditState.target as { type: 'object'; objectId: string }).objectId;
+          const obj = objects.find(o => o.id === targetObjectId);
+          if (obj) {
+            const localPoints = newPoints.map(p => {
+              const dx = p.x - obj.position.x;
+              const dy = p.y - obj.position.y;
+              const angle = -obj.rotation * Math.PI / 180;
+              return {
+                x: Math.round(dx * Math.cos(angle) - dy * Math.sin(angle)),
+                y: Math.round(dx * Math.sin(angle) + dy * Math.cos(angle))
+              };
+            });
+            onUpdateObjectShape(targetObjectId, { points: localPoints });
+          }
+        }
+      }
+      return;
+    }
 
     if (mode === 'dragging-object' && draggedObjectId && dragObjectStartPos) {
       const dx = screenX - dragStart.x;
@@ -330,10 +612,17 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Handle mouse up
   const handleMouseUp = () => {
+    if (polygonEditState && polygonEditState.draggedVertexIndex !== null) {
+      onUpdatePolygonEditState({
+        ...polygonEditState,
+        draggedVertexIndex: null
+      });
+    }
     setMode('idle');
     setDragStart(null);
     setDraggedObjectId(null);
     setDragObjectStartPos(null);
+    setVertexDragStart(null);
   };
 
   // Handle mouse wheel (zoom)

@@ -3,11 +3,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { AppState, SpaceObject, Point } from './types';
+import { AppState, SpaceObject, Point, PolygonEditState, Polygon } from './types';
 import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
 import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';
+import { PolygonDesigner } from './PolygonDesigner';
 import { getPolygonCenter, isObjectInsideSpace } from './geometry';
 
 const STORAGE_KEY = 'space-planner-state';
@@ -66,6 +67,7 @@ export const App: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
+  const [polygonEditState, setPolygonEditState] = useState<PolygonEditState | null>(null);
 
   // Save to localStorage whenever appState changes
   useEffect(() => {
@@ -213,6 +215,96 @@ export const App: React.FC = () => {
     setAppState(newState);
   };
 
+  const handleEnterPolygonEditMode = (target: 'space' | 'object', objectId?: string) => {
+    if (target === 'object') {
+      // Use selected object if no objectId provided
+      const targetObjectId = objectId || appState.selectedObjectId;
+      if (!targetObjectId) {
+        alert('Please select an object first');
+        return;
+      }
+      setPolygonEditState({
+        target: { type: 'object', objectId: targetObjectId },
+        hoveredVertexIndex: null,
+        hoveredEdgeIndex: null,
+        draggedVertexIndex: null,
+        measurementEdgeIndex: null
+      });
+    } else {
+      setPolygonEditState({
+        target: { type: 'space' },
+        hoveredVertexIndex: null,
+        hoveredEdgeIndex: null,
+        draggedVertexIndex: null,
+        measurementEdgeIndex: null
+      });
+    }
+  };
+
+  const handleExitPolygonEditMode = () => {
+    setPolygonEditState(null);
+  };
+
+  const handleUpdateSpaceOutline = (outline: Polygon) => {
+    setAppState(prev => ({
+      ...prev,
+      space: { outline }
+    }));
+  };
+
+  const handleUpdateObjectShape = (id: string, shape: Polygon) => {
+    setAppState(prev => ({
+      ...prev,
+      objects: prev.objects.map(obj =>
+        obj.id === id ? { ...obj, shape } : obj
+      )
+    }));
+  };
+
+  const handleMeasurementInput = (edgeIndex: number, targetLength: number) => {
+    if (!polygonEditState) return;
+
+    const getPolygonPoints = (): Point[] | null => {
+      if (polygonEditState.target.type === 'space') {
+        return appState.space.outline.points;
+      } else {
+        const obj = appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId);
+        return obj ? obj.shape.points : null;
+      }
+    };
+
+    const points = getPolygonPoints();
+    if (!points || edgeIndex < 0 || edgeIndex >= points.length) return;
+
+    const p1 = points[edgeIndex];
+    const p2 = points[(edgeIndex + 1) % points.length];
+
+    // Calculate current edge length and direction
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const currentLength = Math.sqrt(dx * dx + dy * dy);
+
+    if (currentLength === 0) return;
+
+    // Calculate scale factor
+    const scale = targetLength / currentLength;
+
+    // Update p2 to match target length
+    const newP2: Point = {
+      x: Math.round(p1.x + dx * scale),
+      y: Math.round(p1.y + dy * scale)
+    };
+
+    const newPoints = [...points];
+    newPoints[(edgeIndex + 1) % points.length] = newP2;
+
+    if (polygonEditState.target.type === 'space') {
+      handleUpdateSpaceOutline({ points: newPoints });
+    } else {
+      handleUpdateObjectShape((polygonEditState.target as { type: 'object'; objectId: string }).objectId, { points: newPoints });
+    }
+  };
+
   return (
     <div
       style={{
@@ -306,7 +398,7 @@ export const App: React.FC = () => {
             }
           </p>
         </div>
-        <div style={{ flex: 1, marginBottom: isMobile ? '60px' : 0 }}>
+        <div style={{ flex: 1, marginBottom: isMobile ? '60px' : 0, position: 'relative' }}>
           <Canvas
             space={appState.space}
             objects={appState.objects}
@@ -314,6 +406,23 @@ export const App: React.FC = () => {
             onSelectObject={handleSelectObject}
             onUpdateObjectPosition={handleUpdateObjectPosition}
             onUpdateObjectRotation={handleUpdateObjectRotation}
+            polygonEditState={polygonEditState}
+            onUpdatePolygonEditState={setPolygonEditState}
+            onUpdateSpaceOutline={handleUpdateSpaceOutline}
+            onUpdateObjectShape={handleUpdateObjectShape}
+          />
+          <PolygonDesigner
+            editState={polygonEditState}
+            onEnterEditMode={handleEnterPolygonEditMode}
+            onExitEditMode={handleExitPolygonEditMode}
+            onMeasurementInput={handleMeasurementInput}
+            currentPolygonPoints={
+              polygonEditState
+                ? polygonEditState.target.type === 'space'
+                  ? appState.space.outline.points
+                  : appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId)?.shape.points || []
+                : []
+            }
           />
         </div>
       </div>

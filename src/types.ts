@@ -43,9 +43,24 @@ export type InteractionMode =
   | 'idle'
   | 'dragging-object'
   | 'dragging-rotation'
-  | 'panning';
+  | 'panning'
+  | 'editing-polygon'
+  | 'dragging-vertex'
+  | 'adding-vertex';
 
 export type ScreenPoint = {
   x: number; // screen pixels
   y: number; // screen pixels
+};
+
+export type PolygonEditTarget =
+  | { type: 'space' }
+  | { type: 'object'; objectId: string };
+
+export type PolygonEditState = {
+  target: PolygonEditTarget;
+  hoveredVertexIndex: number | null;
+  hoveredEdgeIndex: number | null;
+  draggedVertexIndex: number | null;
+  measurementEdgeIndex: number | null; // which edge is being measured
 };
