@@ -168,6 +168,47 @@ export const App: React.FC = () => {
     }));
   };
 
+  const handleDuplicateObject = (id: string) => {
+    const objectToDuplicate = appState.objects.find(obj => obj.id === id);
+    if (!objectToDuplicate) return;
+
+    // Generate unique ID for the duplicate
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 7);
+    const newId = `obj-${timestamp}-${random}`;
+
+    // Generate a unique name by checking for existing copies
+    const baseName = objectToDuplicate.name.replace(/ Copy(?: \d+)?$/, '');
+    const copyPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: Copy(?: (\\d+))?)?$`);
+    const existingCopies = appState.objects
+      .map(obj => obj.name.match(copyPattern))
+      .filter(match => match !== null)
+      .map(match => {
+        if (!match![1]) return match![0].includes('Copy') ? 1 : 0;
+        return parseInt(match![1], 10);
+      });
+    const maxCopyNumber = existingCopies.length > 0 ? Math.max(...existingCopies) : 0;
+    const newName = maxCopyNumber === 0 ? `${baseName} Copy` : `${baseName} Copy ${maxCopyNumber + 1}`;
+
+    // Create the duplicate with offset position
+    const duplicatedObject: SpaceObject = {
+      ...objectToDuplicate,
+      id: newId,
+      name: newName,
+      position: {
+        x: objectToDuplicate.position.x + 120, // Offset by 12" (120 tenths of an inch)
+        y: objectToDuplicate.position.y + 120
+      },
+      zIndex: maxZIndex + 1
+    };
+
+    setAppState(prev => ({
+      ...prev,
+      objects: [...prev.objects, duplicatedObject],
+      selectedObjectId: newId
+    }));
+  };
+
   const handleUpdateState = (newState: AppState) => {
     setAppState(newState);
   };
@@ -234,6 +275,7 @@ export const App: React.FC = () => {
             onUpdateRotation={handleUpdateObjectRotation}
             onUpdateZIndex={handleUpdateObjectZIndex}
             onDeleteObject={handleDeleteObject}
+            onDuplicateObject={handleDuplicateObject}
           />
         </div>
       )}
