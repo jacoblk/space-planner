@@ -276,7 +276,10 @@ export const Canvas: React.FC<CanvasProps> = ({
       if (draggedObject) {
         const angle = calculateRotationAngle(draggedObject.position, worldPoint);
         const newRotation = (angle - rotationStartAngle + 360) % 360;
-        onUpdateObjectRotation(draggedObjectId, newRotation);
+        const testObject = { ...draggedObject, rotation: newRotation };
+        if (isObjectInsideSpace(testObject, space.outline)) {
+          onUpdateObjectRotation(draggedObjectId, newRotation);
+        }
       }
     } else if (mode === 'panning') {
       const dx = screenX - dragStart.x;
@@ -483,7 +486,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (draggedObject) {
           const angle = calculateRotationAngle(draggedObject.position, worldPoint);
           const newRotation = (angle - rotationStartAngle + 360) % 360;
-          onUpdateObjectRotation(draggedObjectId, newRotation);
+          const testObject = { ...draggedObject, rotation: newRotation };
+          if (isObjectInsideSpace(testObject, space.outline)) {
+            onUpdateObjectRotation(draggedObjectId, newRotation);
+          }
         }
       } else if (mode === 'panning') {
         const dx = screenX - dragStart.x;

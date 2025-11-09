@@ -8,7 +8,7 @@ import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
 import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';
-import { getPolygonCenter } from './geometry';
+import { getPolygonCenter, isObjectInsideSpace } from './geometry';
 
 const STORAGE_KEY = 'space-planner-state';
 
@@ -114,12 +114,24 @@ export const App: React.FC = () => {
   };
 
   const handleUpdateObjectRotation = (id: string, rotation: number) => {
-    setAppState(prev => ({
-      ...prev,
-      objects: prev.objects.map(obj =>
-        obj.id === id ? { ...obj, rotation } : obj
-      )
-    }));
+    setAppState(prev => {
+      const obj = prev.objects.find(o => o.id === id);
+      if (!obj) return prev;
+
+      // Check if the rotation would cause collision
+      const testObject = { ...obj, rotation };
+      if (!isObjectInsideSpace(testObject, prev.space.outline)) {
+        // Rotation would cause object to go through wall, reject it
+        return prev;
+      }
+
+      return {
+        ...prev,
+        objects: prev.objects.map(o =>
+          o.id === id ? { ...o, rotation } : o
+        )
+      };
+    });
   };
 
   const handleUpdateObjectName = (id: string, name: string) => {
