@@ -228,3 +228,42 @@ export function getPolygonCenter(polygon: Polygon): Point {
     y: (bounds.minY + bounds.maxY) / 2
   };
 }
+
+/**
+ * Constrain an object's position to stay within space boundaries while allowing
+ * as much movement as possible. This enables sliding along walls instead of
+ * blocking all movement when hitting a boundary.
+ *
+ * @param obj The object to constrain
+ * @param desiredPosition The desired new position
+ * @param space The space boundary polygon
+ * @returns The constrained position (may be partial movement or original position)
+ */
+export function constrainPositionToSpace(
+  obj: SpaceObject,
+  desiredPosition: Point,
+  space: Polygon
+): Point {
+  // Try the full desired position first
+  const testObject = { ...obj, position: desiredPosition };
+  if (isObjectInsideSpace(testObject, space)) {
+    return desiredPosition;
+  }
+
+  // If full movement fails, try moving only in X direction (horizontal sliding)
+  const xOnlyPosition: Point = { x: desiredPosition.x, y: obj.position.y };
+  const testObjectX = { ...obj, position: xOnlyPosition };
+  if (isObjectInsideSpace(testObjectX, space)) {
+    return xOnlyPosition;
+  }
+
+  // If X movement fails, try moving only in Y direction (vertical sliding)
+  const yOnlyPosition: Point = { x: obj.position.x, y: desiredPosition.y };
+  const testObjectY = { ...obj, position: yOnlyPosition };
+  if (isObjectInsideSpace(testObjectY, space)) {
+    return yOnlyPosition;
+  }
+
+  // If both fail, keep the original position
+  return obj.position;
+}

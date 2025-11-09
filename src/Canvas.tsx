@@ -20,7 +20,8 @@ import {
   calculateRotationAngle,
   findObjectAtPoint,
   isObjectInsideSpace,
-  getPolygonBounds
+  getPolygonBounds,
+  constrainPositionToSpace
 } from './geometry';
 
 interface CanvasProps {
@@ -257,17 +258,19 @@ export const Canvas: React.FC<CanvasProps> = ({
       const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
       const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
 
-      const newPosition: Point = {
+      const desiredPosition: Point = {
         x: Math.round(dragObjectStartPos.x + worldDx),
         y: Math.round(dragObjectStartPos.y + worldDy)
       };
 
       const draggedObject = objects.find(obj => obj.id === draggedObjectId);
       if (draggedObject) {
-        const testObject = { ...draggedObject, position: newPosition };
-        if (isObjectInsideSpace(testObject, space.outline)) {
-          onUpdateObjectPosition(draggedObjectId, newPosition);
-        }
+        const constrainedPosition = constrainPositionToSpace(
+          draggedObject,
+          desiredPosition,
+          space.outline
+        );
+        onUpdateObjectPosition(draggedObjectId, constrainedPosition);
       }
     } else if (mode === 'dragging-rotation' && draggedObjectId) {
       const worldPoint = screenToWorld(screenX, screenY, viewport);
@@ -468,17 +471,19 @@ export const Canvas: React.FC<CanvasProps> = ({
         const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
         const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
 
-        const newPosition: Point = {
+        const desiredPosition: Point = {
           x: Math.round(dragObjectStartPos.x + worldDx),
           y: Math.round(dragObjectStartPos.y + worldDy)
         };
 
         const draggedObject = objects.find(obj => obj.id === draggedObjectId);
         if (draggedObject) {
-          const testObject = { ...draggedObject, position: newPosition };
-          if (isObjectInsideSpace(testObject, space.outline)) {
-            onUpdateObjectPosition(draggedObjectId, newPosition);
-          }
+          const constrainedPosition = constrainPositionToSpace(
+            draggedObject,
+            desiredPosition,
+            space.outline
+          );
+          onUpdateObjectPosition(draggedObjectId, constrainedPosition);
         }
       } else if (mode === 'dragging-rotation' && draggedObjectId) {
         const worldPoint = screenToWorld(screenX, screenY, viewport);
