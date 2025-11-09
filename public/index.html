@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Interactive space planning application" />
     <title>Space Planner</title>
@@ -14,6 +14,16 @@
           sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        /* Prevent pull-to-refresh and overscroll on mobile */
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+        /* Prevent text selection on touch devices */
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        /* Prevent tap highlight on mobile */
+        -webkit-tap-highlight-color: transparent;
       }
       code {
         font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
