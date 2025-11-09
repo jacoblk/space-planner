@@ -12,6 +12,8 @@ interface PolygonDesignerProps {
   onMeasurementInput: (edgeIndex: number, value: number) => void;
   onResetView: (() => void) | null;
   currentPolygonPoints: Point[];
+  showLabels?: boolean;
+  onToggleLabels?: () => void;
 }
 
 export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
@@ -20,7 +22,9 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
   onExitEditMode,
   onMeasurementInput,
   onResetView,
-  currentPolygonPoints
+  currentPolygonPoints,
+  showLabels,
+  onToggleLabels
 }) => {
   const [measurementValue, setMeasurementValue] = React.useState<string>('');
 
@@ -103,6 +107,7 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
               display: 'block',
               width: '100%',
               padding: '8px 12px',
+              marginBottom: '8px',
               backgroundColor: '#10b981',
               color: 'white',
               border: 'none',
@@ -113,6 +118,25 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
             title="Reset view to center on space"
           >
             Reset View
+          </button>
+        )}
+        {onToggleLabels && (
+          <button
+            onClick={onToggleLabels}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '8px 12px',
+              backgroundColor: showLabels ? '#f59e0b' : '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+            title={showLabels ? 'Hide object labels' : 'Show object labels'}
+          >
+            {showLabels ? 'Hide Labels' : 'Show Labels'}
           </button>
         )}
       </div>

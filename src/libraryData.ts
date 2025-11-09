@@ -3,7 +3,7 @@
  * All dimensions are in inches, shapes are in tenths of inches relative to center (0,0)
  */
 
-import { LibraryItem, Polygon } from './types';
+import { LibraryItem, Polygon, SpaceLibraryItem } from './types';
 import { createRectangle } from './geometry';
 
 /**
@@ -300,6 +300,224 @@ export const DEFAULT_LIBRARY_ITEMS: LibraryItem[] = [
  * Get all unique categories from library items
  */
 export function getLibraryCategories(items: LibraryItem[]): string[] {
+  const categories = new Set(items.map(item => item.category));
+  return Array.from(categories).sort();
+}
+
+/**
+ * Default library of space templates with pre-arranged furniture
+ */
+export const DEFAULT_SPACE_LIBRARY_ITEMS: SpaceLibraryItem[] = [
+  {
+    id: 'space-bedroom-small',
+    name: 'Small Bedroom',
+    space: {
+      outline: createRectangle(120, 120)
+    },
+    objects: [
+      {
+        id: 'obj-bed',
+        name: 'Queen Bed',
+        shape: createRectangle(60, 80),
+        position: { x: 0, y: -100 },
+        rotation: 0,
+        zIndex: 1
+      },
+      {
+        id: 'obj-nightstand1',
+        name: 'Nightstand',
+        shape: createRectangle(20, 18),
+        position: { x: 400, y: -100 },
+        rotation: 0,
+        zIndex: 2
+      },
+      {
+        id: 'obj-nightstand2',
+        name: 'Nightstand',
+        shape: createRectangle(20, 18),
+        position: { x: -400, y: -100 },
+        rotation: 0,
+        zIndex: 3
+      },
+      {
+        id: 'obj-dresser',
+        name: 'Dresser',
+        shape: createRectangle(60, 20),
+        position: { x: 0, y: 400 },
+        rotation: 0,
+        zIndex: 4
+      }
+    ],
+    category: 'Bedroom',
+    description: '10x10 ft bedroom with queen bed and furniture'
+  },
+  {
+    id: 'space-living-room',
+    name: 'Living Room',
+    space: {
+      outline: createRectangle(180, 144)
+    },
+    objects: [
+      {
+        id: 'obj-sofa',
+        name: 'Sofa (3-Seat)',
+        shape: createRectangle(84, 36),
+        position: { x: 0, y: 200 },
+        rotation: 0,
+        zIndex: 1
+      },
+      {
+        id: 'obj-coffee-table',
+        name: 'Coffee Table',
+        shape: createRectangle(48, 24),
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        zIndex: 2
+      },
+      {
+        id: 'obj-tv-stand',
+        name: 'TV Stand',
+        shape: createRectangle(60, 18),
+        position: { x: 0, y: -500 },
+        rotation: 0,
+        zIndex: 3
+      },
+      {
+        id: 'obj-armchair1',
+        name: 'Armchair',
+        shape: createRectangle(36, 36),
+        position: { x: -500, y: 100 },
+        rotation: 270,
+        zIndex: 4
+      },
+      {
+        id: 'obj-armchair2',
+        name: 'Armchair',
+        shape: createRectangle(36, 36),
+        position: { x: 500, y: 100 },
+        rotation: 90,
+        zIndex: 5
+      }
+    ],
+    category: 'Living',
+    description: '15x12 ft living room with seating area'
+  },
+  {
+    id: 'space-home-office',
+    name: 'Home Office',
+    space: {
+      outline: createRectangle(120, 96)
+    },
+    objects: [
+      {
+        id: 'obj-desk',
+        name: 'Desk',
+        shape: createRectangle(60, 30),
+        position: { x: 0, y: -200 },
+        rotation: 0,
+        zIndex: 1
+      },
+      {
+        id: 'obj-office-chair',
+        name: 'Office Chair',
+        shape: createRectangle(24, 24),
+        position: { x: 0, y: 50 },
+        rotation: 180,
+        zIndex: 2
+      },
+      {
+        id: 'obj-bookcase',
+        name: 'Bookcase',
+        shape: createRectangle(36, 12),
+        position: { x: -350, y: -200 },
+        rotation: 0,
+        zIndex: 3
+      },
+      {
+        id: 'obj-side-table',
+        name: 'Side Table',
+        shape: createRectangle(20, 20),
+        position: { x: 400, y: 250 },
+        rotation: 0,
+        zIndex: 4
+      }
+    ],
+    category: 'Office',
+    description: '10x8 ft home office setup'
+  },
+  {
+    id: 'space-dining-room',
+    name: 'Dining Room',
+    space: {
+      outline: createRectangle(144, 120)
+    },
+    objects: [
+      {
+        id: 'obj-dining-table',
+        name: 'Dining Table (6-Person)',
+        shape: createRectangle(72, 36),
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        zIndex: 1
+      },
+      {
+        id: 'obj-chair1',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: -270, y: -200 },
+        rotation: 0,
+        zIndex: 2
+      },
+      {
+        id: 'obj-chair2',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: 0, y: -200 },
+        rotation: 0,
+        zIndex: 3
+      },
+      {
+        id: 'obj-chair3',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: 270, y: -200 },
+        rotation: 0,
+        zIndex: 4
+      },
+      {
+        id: 'obj-chair4',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: -270, y: 200 },
+        rotation: 180,
+        zIndex: 5
+      },
+      {
+        id: 'obj-chair5',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: 0, y: 200 },
+        rotation: 180,
+        zIndex: 6
+      },
+      {
+        id: 'obj-chair6',
+        name: 'Dining Chair',
+        shape: createRectangle(18, 20),
+        position: { x: 270, y: 200 },
+        rotation: 180,
+        zIndex: 7
+      }
+    ],
+    category: 'Dining',
+    description: '12x10 ft dining room with table and 6 chairs'
+  }
+];
+
+/**
+ * Get all unique categories from space library items
+ */
+export function getSpaceLibraryCategories(items: SpaceLibraryItem[]): string[] {
   const categories = new Set(items.map(item => item.category));
   return Array.from(categories).sort();
 }

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppState, SpaceObject, Point, PolygonEditState, Polygon, LibraryState, LibraryItem } from './types';
+import { AppState, SpaceObject, Point, PolygonEditState, Polygon, LibraryState, LibraryItem, SpaceLibraryItem, LibraryMode } from './types';
 import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
 import { ObjectPalette } from './ObjectPalette';
@@ -11,7 +11,7 @@ import { PropertiesPanel } from './PropertiesPanel';
 import { PolygonDesigner } from './PolygonDesigner';
 import { LibraryPanel } from './LibraryPanel';
 import { getPolygonCenter, isObjectInsideSpace, getPolygonBounds } from './geometry';
-import { DEFAULT_LIBRARY_ITEMS } from './libraryData';
+import { DEFAULT_LIBRARY_ITEMS, DEFAULT_SPACE_LIBRARY_ITEMS } from './libraryData';
 
 const STORAGE_KEY = 'space-planner-state';
 const LIBRARY_STORAGE_KEY = 'space-planner-library';
@@ -71,10 +71,12 @@ const loadInitialLibrary = (): LibraryState => {
     const stored = localStorage.getItem(LIBRARY_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed && Array.isArray(parsed.customItems)) {
+      if (parsed) {
         return {
           items: DEFAULT_LIBRARY_ITEMS,
-          customItems: parsed.customItems
+          customItems: parsed.customItems || [],
+          spaceItems: DEFAULT_SPACE_LIBRARY_ITEMS,
+          customSpaceItems: parsed.customSpaceItems || []
         };
       }
     }
@@ -83,18 +85,22 @@ const loadInitialLibrary = (): LibraryState => {
   }
   return {
     items: DEFAULT_LIBRARY_ITEMS,
-    customItems: []
+    customItems: [],
+    spaceItems: DEFAULT_SPACE_LIBRARY_ITEMS,
+    customSpaceItems: []
   };
 };
 
 export const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(loadInitialState);
   const [libraryState, setLibraryState] = useState<LibraryState>(loadInitialLibrary);
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>('objects');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [polygonEditState, setPolygonEditState] = useState<PolygonEditState | null>(null);
   const [resetViewFn, setResetViewFn] = useState<(() => void) | null>(null);
+  const [showLabels, setShowLabels] = useState(true);
 
   // Save to localStorage whenever appState changes
   useEffect(() => {
@@ -109,7 +115,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     try {
       localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify({
-        customItems: libraryState.customItems
+        customItems: libraryState.customItems,
+        customSpaceItems: libraryState.customSpaceItems
       }));
     } catch (error) {
       console.error('Failed to save library to localStorage:', error);
@@ -374,6 +381,43 @@ export const App: React.FC = () => {
     }));
   };
 
+  const handleSaveSpaceToLibrary = (name: string, category: string) => {
+    const newSpaceLibraryItem: SpaceLibraryItem = {
+      id: `space-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      space: { ...appState.space },
+      objects: appState.objects.map(obj => ({ ...obj })),
+      category,
+      description: `Custom space with ${appState.objects.length} object(s)`
+    };
+
+    setLibraryState(prev => ({
+      ...prev,
+      customSpaceItems: [...prev.customSpaceItems, newSpaceLibraryItem]
+    }));
+  };
+
+  const handleDeleteSpaceLibraryItem = (id: string) => {
+    setLibraryState(prev => ({
+      ...prev,
+      customSpaceItems: prev.customSpaceItems.filter(item => item.id !== id)
+    }));
+  };
+
+  const handleLoadSpace = (spaceItem: SpaceLibraryItem) => {
+    // Generate new IDs for all objects to avoid conflicts
+    const newObjects = spaceItem.objects.map(obj => ({
+      ...obj,
+      id: `obj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${obj.id}`
+    }));
+
+    setAppState({
+      space: { ...spaceItem.space },
+      objects: newObjects,
+      selectedObjectId: null
+    });
+  };
+
   // Memoize the reset view ready callback to prevent unnecessary re-renders
   const handleResetViewReady = useCallback((resetFn: () => void) => {
     setResetViewFn(() => resetFn);
@@ -434,12 +478,19 @@ export const App: React.FC = () => {
             <LibraryPanel
               libraryItems={libraryState.items}
               customItems={libraryState.customItems}
+              spaceLibraryItems={libraryState.spaceItems}
+              customSpaceItems={libraryState.customSpaceItems}
+              libraryMode={libraryMode}
+              onLibraryModeChange={setLibraryMode}
               spaceCenter={spaceCenter}
               maxZIndex={maxZIndex}
               selectedObject={selectedObject}
               onAddObject={handleAddObject}
               onSaveToLibrary={handleSaveToLibrary}
               onDeleteLibraryItem={handleDeleteLibraryItem}
+              onSaveSpaceToLibrary={handleSaveSpaceToLibrary}
+              onDeleteSpaceLibraryItem={handleDeleteSpaceLibraryItem}
+              onLoadSpace={handleLoadSpace}
             />
             <ObjectPalette
               spaceCenter={spaceCenter}
@@ -497,6 +548,7 @@ export const App: React.FC = () => {
             onUpdateSpaceOutline={handleUpdateSpaceOutline}
             onUpdateObjectShape={handleUpdateObjectShape}
             onResetViewReady={handleResetViewReady}
+            showLabels={showLabels}
           />
           <PolygonDesigner
             editState={polygonEditState}
@@ -511,6 +563,8 @@ export const App: React.FC = () => {
                   : appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId)?.shape.points || []
                 : []
             }
+            showLabels={showLabels}
+            onToggleLabels={() => setShowLabels(!showLabels)}
           />
         </div>
       </div>

@@ -38,6 +38,7 @@ interface CanvasProps {
   onUpdateSpaceOutline: (outline: Polygon) => void;
   onUpdateObjectShape: (id: string, shape: Polygon) => void;
   onResetViewReady?: (resetView: () => void) => void;
+  showLabels: boolean;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -51,7 +52,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   onUpdatePolygonEditState,
   onUpdateSpaceOutline,
   onUpdateObjectShape,
-  onResetViewReady
+  onResetViewReady,
+  showLabels
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,7 +75,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Touch state for pinch-to-zoom
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
   const [initialPinchZoom, setInitialPinchZoom] = useState<number>(1);
-  const [initialPinchCenter, setInitialPinchCenter] = useState<ScreenPoint | null>(null);
+  const [initialPinchWorldPoint, setInitialPinchWorldPoint] = useState<Point | null>(null);
 
   // Polygon editing state
   const [mousePosition, setMousePosition] = useState<ScreenPoint | null>(null);
@@ -265,33 +267,37 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       ctx.restore();
 
-      // Draw label
+      // Get center position (needed for labels and rotation handle)
       const centerScreen = worldToScreen(obj.position, viewport);
-      ctx.save();
-      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
 
-      // Measure text for background
-      const textMetrics = ctx.measureText(obj.name);
-      const padding = 6;
-      const bgWidth = textMetrics.width + padding * 2;
-      const bgHeight = 20;
+      // Draw label (if enabled)
+      if (showLabels) {
+        ctx.save();
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-      // Draw semi-transparent background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(
-        centerScreen.x - bgWidth / 2,
-        centerScreen.y - bgHeight / 2,
-        bgWidth,
-        bgHeight
-      );
+        // Measure text for background
+        const textMetrics = ctx.measureText(obj.name);
+        const padding = 6;
+        const bgWidth = textMetrics.width + padding * 2;
+        const bgHeight = 20;
 
-      // Draw text
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(obj.name, centerScreen.x, centerScreen.y);
+        // Draw semi-transparent background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(
+          centerScreen.x - bgWidth / 2,
+          centerScreen.y - bgHeight / 2,
+          bgWidth,
+          bgHeight
+        );
 
-      ctx.restore();
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(obj.name, centerScreen.x, centerScreen.y);
+
+        ctx.restore();
+      }
 
       // Draw rotation handle for selected object
       if (isSelected) {
@@ -404,7 +410,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [space, objects, selectedObjectId, viewport, polygonEditState, mousePosition]);
+  }, [space, objects, selectedObjectId, viewport, polygonEditState, mousePosition, showLabels]);
 
   // Handle mouse down
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -709,9 +715,10 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (e.touches.length === 2) {
       const distance = getTouchDistance(e.touches[0], e.touches[1], rect);
       const center = getTouchCenter(e.touches[0], e.touches[1], rect);
+      const worldPoint = screenToWorld(center.x, center.y, viewport);
       setInitialPinchDistance(distance);
       setInitialPinchZoom(viewport.zoomLevel);
-      setInitialPinchCenter(center);
+      setInitialPinchWorldPoint(worldPoint);
       setMode('idle'); // Cancel any ongoing drag
       setDragStart(null);
       return;
@@ -723,6 +730,37 @@ export const Canvas: React.FC<CanvasProps> = ({
       const screenX = touch.clientX - rect.left;
       const screenY = touch.clientY - rect.top;
       const screenPoint: ScreenPoint = { x: screenX, y: screenY };
+
+      // Handle polygon editing mode
+      if (polygonEditState) {
+        // Check if touching a vertex
+        const vertexIndex = findVertexAtPoint(screenPoint);
+        if (vertexIndex !== null) {
+          setMode('dragging-vertex');
+          const worldPoints = getEditingPolygonWorldPoints();
+          if (worldPoints) {
+            setVertexDragStart(worldPoints[vertexIndex]);
+            onUpdatePolygonEditState({
+              ...polygonEditState,
+              draggedVertexIndex: vertexIndex,
+              measurementEdgeIndex: null
+            });
+          }
+          setDragStart(screenPoint);
+          return;
+        }
+
+        // Check if touching an edge
+        const edgeIndex = findEdgeAtPoint(screenPoint);
+        if (edgeIndex !== null) {
+          // For touch, we don't have shift key, so just select edge for measurement
+          onUpdatePolygonEditState({
+            ...polygonEditState,
+            measurementEdgeIndex: edgeIndex
+          });
+          return;
+        }
+      }
 
       // Check if touching rotation handle
       const selectedObject = objects.find(obj => obj.id === selectedObjectId);
@@ -766,7 +804,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     const rect = canvas.getBoundingClientRect();
 
     // Handle pinch-to-zoom
-    if (e.touches.length === 2 && initialPinchDistance && initialPinchCenter) {
+    if (e.touches.length === 2 && initialPinchDistance && initialPinchWorldPoint) {
       const currentDistance = getTouchDistance(e.touches[0], e.touches[1], rect);
       const currentCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
 
@@ -774,21 +812,22 @@ export const Canvas: React.FC<CanvasProps> = ({
       const zoomChange = currentDistance / initialPinchDistance;
       const newZoomLevel = Math.max(0.1, Math.min(10, initialPinchZoom * zoomChange));
 
-      // Get world point before zoom at current pinch center
-      const worldBefore = screenToWorld(currentCenter.x, currentCenter.y, viewport);
+      // Calculate new scale
+      const newScale = viewport.baseScale * newZoomLevel;
 
-      // Get world point after zoom at current pinch center
-      const newViewport = { ...viewport, zoomLevel: newZoomLevel };
-      const worldAfter = screenToWorld(currentCenter.x, currentCenter.y, newViewport);
+      // Calculate where the initial world point would appear on screen with new zoom
+      const expectedScreenX = (initialPinchWorldPoint.x / 10 + viewport.offsetX) * newScale;
+      const expectedScreenY = (initialPinchWorldPoint.y / 10 + viewport.offsetY) * newScale;
 
-      // Adjust offset to keep pinch center steady
-      const offsetDx = (worldAfter.x - worldBefore.x) / 10;
-      const offsetDy = (worldAfter.y - worldBefore.y) / 10;
+      // Calculate the offset adjustment needed to make it appear at current pinch center
+      const offsetDx = (currentCenter.x - expectedScreenX) / newScale;
+      const offsetDy = (currentCenter.y - expectedScreenY) / newScale;
 
       setViewport({
-        ...newViewport,
-        offsetX: newViewport.offsetX - offsetDx,
-        offsetY: newViewport.offsetY - offsetDy
+        ...viewport,
+        zoomLevel: newZoomLevel,
+        offsetX: viewport.offsetX + offsetDx,
+        offsetY: viewport.offsetY + offsetDy
       });
 
       return;
@@ -799,6 +838,47 @@ export const Canvas: React.FC<CanvasProps> = ({
       const touch = e.touches[0];
       const screenX = touch.clientX - rect.left;
       const screenY = touch.clientY - rect.top;
+
+      // Handle vertex dragging
+      if (mode === 'dragging-vertex' && polygonEditState && vertexDragStart) {
+        const dx = screenX - dragStart.x;
+        const dy = screenY - dragStart.y;
+
+        const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
+        const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
+
+        const newPoint: Point = {
+          x: Math.round(vertexDragStart.x + worldDx),
+          y: Math.round(vertexDragStart.y + worldDy)
+        };
+
+        const worldPoints = getEditingPolygonWorldPoints();
+        if (worldPoints && polygonEditState.draggedVertexIndex !== null) {
+          const newPoints = [...worldPoints];
+          newPoints[polygonEditState.draggedVertexIndex] = newPoint;
+
+          if (polygonEditState.target.type === 'space') {
+            onUpdateSpaceOutline({ points: newPoints });
+          } else {
+            // For objects, convert back to object-local coordinates
+            const targetObjectId = (polygonEditState.target as { type: 'object'; objectId: string }).objectId;
+            const obj = objects.find(o => o.id === targetObjectId);
+            if (obj) {
+              const localPoints = newPoints.map(p => {
+                const dx = p.x - obj.position.x;
+                const dy = p.y - obj.position.y;
+                const angle = -obj.rotation * Math.PI / 180;
+                return {
+                  x: Math.round(dx * Math.cos(angle) - dy * Math.sin(angle)),
+                  y: Math.round(dx * Math.sin(angle) + dy * Math.cos(angle))
+                };
+              });
+              onUpdateObjectShape(targetObjectId, { points: localPoints });
+            }
+          }
+        }
+        return;
+      }
 
       if (mode === 'dragging-object' && draggedObjectId && dragObjectStartPos) {
         const dx = screenX - dragStart.x;
@@ -858,15 +938,22 @@ export const Canvas: React.FC<CanvasProps> = ({
     // Reset pinch state when fingers are lifted
     if (e.touches.length < 2) {
       setInitialPinchDistance(null);
-      setInitialPinchCenter(null);
+      setInitialPinchWorldPoint(null);
     }
 
     // Reset drag state when all fingers are lifted
     if (e.touches.length === 0) {
+      if (polygonEditState && polygonEditState.draggedVertexIndex !== null) {
+        onUpdatePolygonEditState({
+          ...polygonEditState,
+          draggedVertexIndex: null
+        });
+      }
       setMode('idle');
       setDragStart(null);
       setDraggedObjectId(null);
       setDragObjectStartPos(null);
+      setVertexDragStart(null);
     }
   };
 
