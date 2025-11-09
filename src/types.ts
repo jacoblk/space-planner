@@ -75,7 +75,20 @@ export type LibraryItem = {
   description?: string;
 };
 
+export type SpaceLibraryItem = {
+  id: string;
+  name: string;
+  space: Space; // the space outline
+  objects: SpaceObject[]; // all objects in the space
+  category: string;
+  description?: string;
+};
+
+export type LibraryMode = 'objects' | 'spaces';
+
 export type LibraryState = {
   items: LibraryItem[];
   customItems: LibraryItem[]; // user-saved items
+  spaceItems: SpaceLibraryItem[];
+  customSpaceItems: SpaceLibraryItem[]; // user-saved space templates
 };
