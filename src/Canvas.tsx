@@ -88,22 +88,39 @@ export const Canvas: React.FC<CanvasProps> = ({
   const resetViewport = React.useCallback(() => {
     if (!containerRef.current) return;
 
+    // Get the bounds of the space
     const bounds = getPolygonBounds(space.outline);
     const spaceWidth = (bounds.maxX - bounds.minX) / 10; // in inches
     const spaceHeight = (bounds.maxY - bounds.minY) / 10; // in inches
 
+    // Get the center of the space in world coordinates (tenths of inches)
+    const spaceCenterX = (bounds.minX + bounds.maxX) / 2;
+    const spaceCenterY = (bounds.minY + bounds.maxY) / 2;
+
+    // Get container dimensions
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
-    const scaleX = containerWidth / (spaceWidth * 1.2); // 1.2 for padding
-    const scaleY = containerHeight / (spaceHeight * 1.2);
-    const baseScale = Math.min(scaleX, scaleY);
+    // Calculate the scale to fit the space in the container with some padding
+    const padding = 1.2; // 20% padding
+    const scaleX = containerWidth / (spaceWidth * padding);
+    const scaleY = containerHeight / (spaceHeight * padding);
+    const newBaseScale = Math.min(scaleX, scaleY);
 
+    // Calculate offset to center the space in the container
+    // At zoomLevel 1, we want the space center to appear at the container center
+    // Screen position = (world position / 10 + offset) * scale
+    // For center: containerWidth/2 = (spaceCenterX/10 + offsetX) * newBaseScale
+    // Therefore: offsetX = containerWidth/(2 * newBaseScale) - spaceCenterX/10
+    const newOffsetX = containerWidth / (2 * newBaseScale) - spaceCenterX / 10;
+    const newOffsetY = containerHeight / (2 * newBaseScale) - spaceCenterY / 10;
+
+    // Reset to a completely fresh viewport state
     setViewport({
-      offsetX: -(bounds.minX / 10) + (containerWidth / baseScale - spaceWidth) / 2,
-      offsetY: -(bounds.minY / 10) + (containerHeight / baseScale - spaceHeight) / 2,
-      baseScale,
-      scale: baseScale,
+      offsetX: newOffsetX,
+      offsetY: newOffsetY,
+      baseScale: newBaseScale,
+      scale: newBaseScale,
       zoomLevel: 1
     });
   }, [space]);
