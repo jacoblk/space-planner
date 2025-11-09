@@ -3,15 +3,18 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { AppState, SpaceObject, Point, PolygonEditState, Polygon } from './types';
+import { AppState, SpaceObject, Point, PolygonEditState, Polygon, LibraryState, LibraryItem } from './types';
 import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
 import { ObjectPalette } from './ObjectPalette';
 import { PropertiesPanel } from './PropertiesPanel';
 import { PolygonDesigner } from './PolygonDesigner';
-import { getPolygonCenter, isObjectInsideSpace } from './geometry';
+import { LibraryPanel } from './LibraryPanel';
+import { getPolygonCenter, isObjectInsideSpace, getPolygonBounds } from './geometry';
+import { DEFAULT_LIBRARY_ITEMS } from './libraryData';
 
 const STORAGE_KEY = 'space-planner-state';
+const LIBRARY_STORAGE_KEY = 'space-planner-library';
 
 // Initial state with a 12' × 10' room and a 6' × 3' sofa
 const getDefaultState = (): AppState => ({
@@ -62,8 +65,31 @@ const loadInitialState = (): AppState => {
   return getDefaultState();
 };
 
+// Load library from localStorage, fallback to default library
+const loadInitialLibrary = (): LibraryState => {
+  try {
+    const stored = localStorage.getItem(LIBRARY_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && Array.isArray(parsed.customItems)) {
+        return {
+          items: DEFAULT_LIBRARY_ITEMS,
+          customItems: parsed.customItems
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load library from localStorage:', error);
+  }
+  return {
+    items: DEFAULT_LIBRARY_ITEMS,
+    customItems: []
+  };
+};
+
 export const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(loadInitialState);
+  const [libraryState, setLibraryState] = useState<LibraryState>(loadInitialLibrary);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
@@ -77,6 +103,17 @@ export const App: React.FC = () => {
       console.error('Failed to save state to localStorage:', error);
     }
   }, [appState]);
+
+  // Save library to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify({
+        customItems: libraryState.customItems
+      }));
+    } catch (error) {
+      console.error('Failed to save library to localStorage:', error);
+    }
+  }, [libraryState]);
 
   // Update mobile state on resize
   useEffect(() => {
@@ -305,6 +342,37 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSaveToLibrary = (name: string, category: string) => {
+    if (!selectedObject) return;
+
+    // Calculate dimensions from bounding box
+    const bounds = getPolygonBounds(selectedObject.shape);
+    const width = Math.round((bounds.maxX - bounds.minX) / 10);
+    const height = Math.round((bounds.maxY - bounds.minY) / 10);
+
+    const newLibraryItem: LibraryItem = {
+      id: `lib-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      shape: selectedObject.shape,
+      category,
+      width,
+      height,
+      description: `Custom saved from ${selectedObject.name}`
+    };
+
+    setLibraryState(prev => ({
+      ...prev,
+      customItems: [...prev.customItems, newLibraryItem]
+    }));
+  };
+
+  const handleDeleteLibraryItem = (id: string) => {
+    setLibraryState(prev => ({
+      ...prev,
+      customItems: prev.customItems.filter(item => item.id !== id)
+    }));
+  };
+
   return (
     <div
       style={{
@@ -356,20 +424,32 @@ export const App: React.FC = () => {
               </button>
             </div>
           )}
-          <ObjectPalette
-            spaceCenter={spaceCenter}
-            maxZIndex={maxZIndex}
-            onAddObject={handleAddObject}
-          />
-          <PropertiesPanel
-            selectedObject={selectedObject}
-            onUpdateName={handleUpdateObjectName}
-            onUpdatePosition={handleUpdateObjectPosition}
-            onUpdateRotation={handleUpdateObjectRotation}
-            onUpdateZIndex={handleUpdateObjectZIndex}
-            onDeleteObject={handleDeleteObject}
-            onDuplicateObject={handleDuplicateObject}
-          />
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <LibraryPanel
+              libraryItems={libraryState.items}
+              customItems={libraryState.customItems}
+              spaceCenter={spaceCenter}
+              maxZIndex={maxZIndex}
+              selectedObject={selectedObject}
+              onAddObject={handleAddObject}
+              onSaveToLibrary={handleSaveToLibrary}
+              onDeleteLibraryItem={handleDeleteLibraryItem}
+            />
+            <ObjectPalette
+              spaceCenter={spaceCenter}
+              maxZIndex={maxZIndex}
+              onAddObject={handleAddObject}
+            />
+            <PropertiesPanel
+              selectedObject={selectedObject}
+              onUpdateName={handleUpdateObjectName}
+              onUpdatePosition={handleUpdateObjectPosition}
+              onUpdateRotation={handleUpdateObjectRotation}
+              onUpdateZIndex={handleUpdateObjectZIndex}
+              onDeleteObject={handleDeleteObject}
+              onDuplicateObject={handleDuplicateObject}
+            />
+          </div>
         </div>
       )}
 
