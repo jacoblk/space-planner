@@ -64,3 +64,18 @@ export type PolygonEditState = {
   draggedVertexIndex: number | null;
   measurementEdgeIndex: number | null; // which edge is being measured
 };
+
+export type LibraryItem = {
+  id: string;
+  name: string;
+  shape: Polygon; // pre-defined shape relative to center (0,0)
+  category: string;
+  width: number; // reference dimension in inches
+  height: number; // reference dimension in inches
+  description?: string;
+};
+
+export type LibraryState = {
+  items: LibraryItem[];
+  customItems: LibraryItem[]; // user-saved items
+};
