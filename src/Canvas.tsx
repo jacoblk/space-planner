@@ -57,6 +57,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [dragObjectStartPos, setDragObjectStartPos] = useState<Point | null>(null);
   const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
 
+  // Touch state for pinch-to-zoom
+  const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
+  const [initialPinchZoom, setInitialPinchZoom] = useState<number>(1);
+  const [initialPinchCenter, setInitialPinchCenter] = useState<ScreenPoint | null>(null);
+
   // Calculate initial viewport to fit space
   useEffect(() => {
     if (!containerRef.current) return;
@@ -159,34 +164,34 @@ export const Canvas: React.FC<CanvasProps> = ({
         ctx.stroke();
         ctx.restore();
 
-        // Draw handle
+        // Draw handle (larger for better touch support)
         ctx.save();
         ctx.fillStyle = '#4080ff';
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(handlePos.x, handlePos.y, 8, 0, 2 * Math.PI);
+        ctx.arc(handlePos.x, handlePos.y, 16, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
 
         // Draw rotating arrow icon
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.lineCap = 'round';
 
         // Draw circular arrow (270 degree arc)
         ctx.beginPath();
-        ctx.arc(handlePos.x, handlePos.y, 4, -Math.PI / 4, (3 * Math.PI) / 2, false);
+        ctx.arc(handlePos.x, handlePos.y, 8, -Math.PI / 4, (3 * Math.PI) / 2, false);
         ctx.stroke();
 
         // Draw arrowhead
-        const arrowX = handlePos.x - 4 * Math.cos(Math.PI / 4);
-        const arrowY = handlePos.y - 4 * Math.sin(Math.PI / 4);
+        const arrowX = handlePos.x - 8 * Math.cos(Math.PI / 4);
+        const arrowY = handlePos.y - 8 * Math.sin(Math.PI / 4);
         ctx.beginPath();
         ctx.moveTo(arrowX, arrowY);
-        ctx.lineTo(arrowX - 2, arrowY - 2);
+        ctx.lineTo(arrowX - 3, arrowY - 3);
         ctx.moveTo(arrowX, arrowY);
-        ctx.lineTo(arrowX + 2, arrowY - 2);
+        ctx.lineTo(arrowX + 3, arrowY - 3);
         ctx.stroke();
 
         ctx.restore();
@@ -332,6 +337,191 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
+  // Helper function to get distance between two touch points
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch, rect: DOMRect): number => {
+    const x1 = touch1.clientX - rect.left;
+    const y1 = touch1.clientY - rect.top;
+    const x2 = touch2.clientX - rect.left;
+    const y2 = touch2.clientY - rect.top;
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  };
+
+  // Helper function to get center point between two touches
+  const getTouchCenter = (touch1: React.Touch, touch2: React.Touch, rect: DOMRect): ScreenPoint => {
+    const x1 = touch1.clientX - rect.left;
+    const y1 = touch1.clientY - rect.top;
+    const x2 = touch2.clientX - rect.left;
+    const y2 = touch2.clientY - rect.top;
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  };
+
+  // Handle touch start
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    // Handle pinch-to-zoom (two fingers)
+    if (e.touches.length === 2) {
+      const distance = getTouchDistance(e.touches[0], e.touches[1], rect);
+      const center = getTouchCenter(e.touches[0], e.touches[1], rect);
+      setInitialPinchDistance(distance);
+      setInitialPinchZoom(viewport.zoomLevel);
+      setInitialPinchCenter(center);
+      setMode('idle'); // Cancel any ongoing drag
+      setDragStart(null);
+      return;
+    }
+
+    // Handle single touch (same as mouse down)
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const screenX = touch.clientX - rect.left;
+      const screenY = touch.clientY - rect.top;
+      const screenPoint: ScreenPoint = { x: screenX, y: screenY };
+
+      // Check if touching rotation handle
+      const selectedObject = objects.find(obj => obj.id === selectedObjectId);
+      if (selectedObject && isPointOnRotationHandle(screenPoint, selectedObject, viewport)) {
+        setMode('dragging-rotation');
+        setDraggedObjectId(selectedObject.id);
+        setDragStart(screenPoint);
+        const worldPoint = screenToWorld(screenX, screenY, viewport);
+        setRotationStartAngle(
+          calculateRotationAngle(selectedObject.position, worldPoint) - selectedObject.rotation
+        );
+        return;
+      }
+
+      // Check if touching an object
+      const worldPoint = screenToWorld(screenX, screenY, viewport);
+      const touchedObject = findObjectAtPoint(worldPoint, objects);
+
+      if (touchedObject) {
+        onSelectObject(touchedObject.id);
+        setMode('dragging-object');
+        setDraggedObjectId(touchedObject.id);
+        setDragStart(screenPoint);
+        setDragObjectStartPos(touchedObject.position);
+        return;
+      }
+
+      // Otherwise, start panning
+      onSelectObject(null);
+      setMode('panning');
+      setDragStart(screenPoint);
+    }
+  };
+
+  // Handle touch move
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    // Handle pinch-to-zoom
+    if (e.touches.length === 2 && initialPinchDistance && initialPinchCenter) {
+      const currentDistance = getTouchDistance(e.touches[0], e.touches[1], rect);
+
+      // Calculate zoom change
+      const zoomChange = currentDistance / initialPinchDistance;
+      const newZoomLevel = Math.max(0.1, Math.min(10, initialPinchZoom * zoomChange));
+
+      // Get world point before zoom at pinch center
+      const worldBefore = screenToWorld(initialPinchCenter.x, initialPinchCenter.y, viewport);
+
+      // Get world point after zoom
+      const newViewport = { ...viewport, zoomLevel: newZoomLevel };
+      const worldAfter = screenToWorld(initialPinchCenter.x, initialPinchCenter.y, newViewport);
+
+      // Adjust offset to keep pinch center steady
+      const offsetDx = (worldAfter.x - worldBefore.x) / 10;
+      const offsetDy = (worldAfter.y - worldBefore.y) / 10;
+
+      setViewport({
+        ...newViewport,
+        offsetX: newViewport.offsetX - offsetDx,
+        offsetY: newViewport.offsetY - offsetDy
+      });
+
+      return;
+    }
+
+    // Handle single touch drag (same as mouse move)
+    if (e.touches.length === 1 && dragStart) {
+      const touch = e.touches[0];
+      const screenX = touch.clientX - rect.left;
+      const screenY = touch.clientY - rect.top;
+
+      if (mode === 'dragging-object' && draggedObjectId && dragObjectStartPos) {
+        const dx = screenX - dragStart.x;
+        const dy = screenY - dragStart.y;
+
+        const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
+        const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
+
+        const newPosition: Point = {
+          x: Math.round(dragObjectStartPos.x + worldDx),
+          y: Math.round(dragObjectStartPos.y + worldDy)
+        };
+
+        const draggedObject = objects.find(obj => obj.id === draggedObjectId);
+        if (draggedObject) {
+          const testObject = { ...draggedObject, position: newPosition };
+          if (isObjectInsideSpace(testObject, space.outline)) {
+            onUpdateObjectPosition(draggedObjectId, newPosition);
+          }
+        }
+      } else if (mode === 'dragging-rotation' && draggedObjectId) {
+        const worldPoint = screenToWorld(screenX, screenY, viewport);
+        const draggedObject = objects.find(obj => obj.id === draggedObjectId);
+
+        if (draggedObject) {
+          const angle = calculateRotationAngle(draggedObject.position, worldPoint);
+          const newRotation = (angle - rotationStartAngle + 360) % 360;
+          onUpdateObjectRotation(draggedObjectId, newRotation);
+        }
+      } else if (mode === 'panning') {
+        const dx = screenX - dragStart.x;
+        const dy = screenY - dragStart.y;
+
+        const worldDx = dx / (viewport.scale * viewport.zoomLevel);
+        const worldDy = dy / (viewport.scale * viewport.zoomLevel);
+
+        setViewport(prev => ({
+          ...prev,
+          offsetX: prev.offsetX + worldDx,
+          offsetY: prev.offsetY + worldDy
+        }));
+
+        setDragStart({ x: screenX, y: screenY });
+      }
+    }
+  };
+
+  // Handle touch end
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+
+    // Reset pinch state when fingers are lifted
+    if (e.touches.length < 2) {
+      setInitialPinchDistance(null);
+      setInitialPinchCenter(null);
+    }
+
+    // Reset drag state when all fingers are lifted
+    if (e.touches.length === 0) {
+      setMode('idle');
+      setDragStart(null);
+      setDraggedObjectId(null);
+      setDragObjectStartPos(null);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -349,7 +539,14 @@ export const Canvas: React.FC<CanvasProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        style={{ cursor: mode === 'panning' ? 'grabbing' : 'default' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        style={{
+          cursor: mode === 'panning' ? 'grabbing' : 'default',
+          touchAction: 'none' // Prevent default touch behaviors
+        }}
       />
     </div>
   );

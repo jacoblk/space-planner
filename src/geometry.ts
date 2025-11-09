@@ -98,7 +98,7 @@ export function isPointOnRotationHandle(
   const dy = screenPoint.y - handlePos.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  return distance <= 8; // 8px radius for handle
+  return distance <= 16; // 16px radius for better touch support
 }
 
 /**
