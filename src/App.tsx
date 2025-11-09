@@ -2,7 +2,7 @@
  * Main App component - state management and layout
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, SpaceObject, Point, PolygonEditState, Polygon, LibraryState, LibraryItem, SpaceLibraryItem, LibraryMode } from './types';
 import { Canvas } from './Canvas';
 import { SpaceEditor } from './SpaceEditor';
@@ -418,6 +418,11 @@ export const App: React.FC = () => {
     });
   };
 
+  // Memoize the reset view ready callback to prevent unnecessary re-renders
+  const handleResetViewReady = useCallback((resetFn: () => void) => {
+    setResetViewFn(() => resetFn);
+  }, []);
+
   return (
     <div
       style={{
@@ -542,7 +547,7 @@ export const App: React.FC = () => {
             onUpdatePolygonEditState={setPolygonEditState}
             onUpdateSpaceOutline={handleUpdateSpaceOutline}
             onUpdateObjectShape={handleUpdateObjectShape}
-            onResetViewReady={(resetFn) => setResetViewFn(() => resetFn)}
+            onResetViewReady={handleResetViewReady}
             showLabels={showLabels}
           />
           <PolygonDesigner
