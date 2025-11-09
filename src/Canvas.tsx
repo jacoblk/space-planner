@@ -73,7 +73,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Touch state for pinch-to-zoom
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
   const [initialPinchZoom, setInitialPinchZoom] = useState<number>(1);
-  const [initialPinchCenter, setInitialPinchCenter] = useState<ScreenPoint | null>(null);
+  const [initialPinchWorldPoint, setInitialPinchWorldPoint] = useState<Point | null>(null);
 
   // Polygon editing state
   const [mousePosition, setMousePosition] = useState<ScreenPoint | null>(null);
@@ -709,9 +709,10 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (e.touches.length === 2) {
       const distance = getTouchDistance(e.touches[0], e.touches[1], rect);
       const center = getTouchCenter(e.touches[0], e.touches[1], rect);
+      const worldPoint = screenToWorld(center.x, center.y, viewport);
       setInitialPinchDistance(distance);
       setInitialPinchZoom(viewport.zoomLevel);
-      setInitialPinchCenter(center);
+      setInitialPinchWorldPoint(worldPoint);
       setMode('idle'); // Cancel any ongoing drag
       setDragStart(null);
       return;
@@ -797,7 +798,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     const rect = canvas.getBoundingClientRect();
 
     // Handle pinch-to-zoom
-    if (e.touches.length === 2 && initialPinchDistance && initialPinchCenter) {
+    if (e.touches.length === 2 && initialPinchDistance && initialPinchWorldPoint) {
       const currentDistance = getTouchDistance(e.touches[0], e.touches[1], rect);
       const currentCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
 
@@ -805,21 +806,22 @@ export const Canvas: React.FC<CanvasProps> = ({
       const zoomChange = currentDistance / initialPinchDistance;
       const newZoomLevel = Math.max(0.1, Math.min(10, initialPinchZoom * zoomChange));
 
-      // Get world point before zoom at current pinch center
-      const worldBefore = screenToWorld(currentCenter.x, currentCenter.y, viewport);
+      // Calculate new scale
+      const newScale = viewport.baseScale * newZoomLevel;
 
-      // Get world point after zoom at current pinch center
-      const newViewport = { ...viewport, zoomLevel: newZoomLevel };
-      const worldAfter = screenToWorld(currentCenter.x, currentCenter.y, newViewport);
+      // Calculate where the initial world point would appear on screen with new zoom
+      const expectedScreenX = (initialPinchWorldPoint.x / 10 + viewport.offsetX) * newScale;
+      const expectedScreenY = (initialPinchWorldPoint.y / 10 + viewport.offsetY) * newScale;
 
-      // Adjust offset to keep pinch center steady
-      const offsetDx = (worldAfter.x - worldBefore.x) / 10;
-      const offsetDy = (worldAfter.y - worldBefore.y) / 10;
+      // Calculate the offset adjustment needed to make it appear at current pinch center
+      const offsetDx = (currentCenter.x - expectedScreenX) / newScale;
+      const offsetDy = (currentCenter.y - expectedScreenY) / newScale;
 
       setViewport({
-        ...newViewport,
-        offsetX: newViewport.offsetX - offsetDx,
-        offsetY: newViewport.offsetY - offsetDy
+        ...viewport,
+        zoomLevel: newZoomLevel,
+        offsetX: viewport.offsetX + offsetDx,
+        offsetY: viewport.offsetY + offsetDy
       });
 
       return;
@@ -930,7 +932,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     // Reset pinch state when fingers are lifted
     if (e.touches.length < 2) {
       setInitialPinchDistance(null);
-      setInitialPinchCenter(null);
+      setInitialPinchWorldPoint(null);
     }
 
     // Reset drag state when all fingers are lifted
