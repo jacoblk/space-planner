@@ -12,6 +12,7 @@ interface PropertiesPanelProps {
   onUpdateRotation: (id: string, rotation: number) => void;
   onUpdateZIndex: (id: string, zIndex: number) => void;
   onDeleteObject: (id: string) => void;
+  onDuplicateObject: (id: string) => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -20,7 +21,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onUpdatePosition,
   onUpdateRotation,
   onUpdateZIndex,
-  onDeleteObject
+  onDeleteObject,
+  onDuplicateObject
 }) => {
   const [name, setName] = useState('');
   const [posX, setPosX] = useState('');
@@ -107,6 +109,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     if (window.confirm(`Delete "${selectedObject.name}"?`)) {
       onDeleteObject(selectedObject.id);
     }
+  };
+
+  const handleDuplicate = () => {
+    onDuplicateObject(selectedObject.id);
   };
 
   return (
@@ -259,6 +265,24 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           }}
         />
       </div>
+
+      <button
+        onClick={handleDuplicate}
+        style={{
+          width: '100%',
+          padding: '8px',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          color: '#fff',
+          backgroundColor: '#4CAF50',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          marginBottom: '8px'
+        }}
+      >
+        Duplicate Object
+      </button>
 
       <button
         onClick={handleDelete}
