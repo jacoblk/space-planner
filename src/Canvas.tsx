@@ -38,6 +38,7 @@ interface CanvasProps {
   onUpdateSpaceOutline: (outline: Polygon) => void;
   onUpdateObjectShape: (id: string, shape: Polygon) => void;
   onResetViewReady?: (resetView: () => void) => void;
+  showLabels: boolean;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -51,7 +52,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   onUpdatePolygonEditState,
   onUpdateSpaceOutline,
   onUpdateObjectShape,
-  onResetViewReady
+  onResetViewReady,
+  showLabels
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -265,33 +267,37 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       ctx.restore();
 
-      // Draw label
+      // Get center position (needed for labels and rotation handle)
       const centerScreen = worldToScreen(obj.position, viewport);
-      ctx.save();
-      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
 
-      // Measure text for background
-      const textMetrics = ctx.measureText(obj.name);
-      const padding = 6;
-      const bgWidth = textMetrics.width + padding * 2;
-      const bgHeight = 20;
+      // Draw label (if enabled)
+      if (showLabels) {
+        ctx.save();
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-      // Draw semi-transparent background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(
-        centerScreen.x - bgWidth / 2,
-        centerScreen.y - bgHeight / 2,
-        bgWidth,
-        bgHeight
-      );
+        // Measure text for background
+        const textMetrics = ctx.measureText(obj.name);
+        const padding = 6;
+        const bgWidth = textMetrics.width + padding * 2;
+        const bgHeight = 20;
 
-      // Draw text
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(obj.name, centerScreen.x, centerScreen.y);
+        // Draw semi-transparent background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(
+          centerScreen.x - bgWidth / 2,
+          centerScreen.y - bgHeight / 2,
+          bgWidth,
+          bgHeight
+        );
 
-      ctx.restore();
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(obj.name, centerScreen.x, centerScreen.y);
+
+        ctx.restore();
+      }
 
       // Draw rotation handle for selected object
       if (isSelected) {
@@ -404,7 +410,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [space, objects, selectedObjectId, viewport, polygonEditState, mousePosition]);
+  }, [space, objects, selectedObjectId, viewport, polygonEditState, mousePosition, showLabels]);
 
   // Handle mouse down
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

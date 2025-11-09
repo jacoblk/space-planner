@@ -95,6 +95,7 @@ export const App: React.FC = () => {
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [polygonEditState, setPolygonEditState] = useState<PolygonEditState | null>(null);
   const [resetViewFn, setResetViewFn] = useState<(() => void) | null>(null);
+  const [showLabels, setShowLabels] = useState(true);
 
   // Save to localStorage whenever appState changes
   useEffect(() => {
@@ -492,6 +493,7 @@ export const App: React.FC = () => {
             onUpdateSpaceOutline={handleUpdateSpaceOutline}
             onUpdateObjectShape={handleUpdateObjectShape}
             onResetViewReady={(resetFn) => setResetViewFn(() => resetFn)}
+            showLabels={showLabels}
           />
           <PolygonDesigner
             editState={polygonEditState}
@@ -506,6 +508,8 @@ export const App: React.FC = () => {
                   : appState.objects.find(o => o.id === (polygonEditState.target as { type: 'object'; objectId: string }).objectId)?.shape.points || []
                 : []
             }
+            showLabels={showLabels}
+            onToggleLabels={() => setShowLabels(!showLabels)}
           />
         </div>
       </div>
