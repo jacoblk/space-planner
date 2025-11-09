@@ -92,3 +92,33 @@ export type LibraryState = {
   spaceItems: SpaceLibraryItem[];
   customSpaceItems: SpaceLibraryItem[]; // user-saved space templates
 };
+
+// Project structure types
+export type Variation = {
+  id: string;
+  name: string;
+  createdAt: string; // ISO date string
+  space: Space;
+  objects: SpaceObject[];
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  variations: Variation[];
+};
+
+export type ProjectsState = {
+  projects: Project[];
+  currentProjectId: string | null;
+  currentVariationId: string | null;
+  selectedObjectId: string | null;
+};
+
+export type ComparisonMode = {
+  active: boolean;
+  leftVariationId: string | null;
+  rightVariationId: string | null;
+};

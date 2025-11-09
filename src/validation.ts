@@ -2,7 +2,7 @@
  * JSON validation utilities for space and objects
  */
 
-import { AppState } from './types';
+import { AppState, ProjectsState } from './types';
 
 export type ValidationResult<T> =
   | { valid: true; data: T }
@@ -134,6 +134,105 @@ export function serializeAppState(state: AppState): string {
   const simplified = {
     space: state.space,
     objects: state.objects
+  };
+
+  return JSON.stringify(simplified, null, 2);
+}
+
+/**
+ * Validate a variation object
+ */
+function isValidVariation(variation: any): boolean {
+  if (!variation || typeof variation !== 'object') {
+    return false;
+  }
+
+  return (
+    typeof variation.id === 'string' &&
+    typeof variation.name === 'string' &&
+    typeof variation.createdAt === 'string' &&
+    isValidSpace(variation.space) &&
+    Array.isArray(variation.objects) &&
+    variation.objects.every(isValidSpaceObject)
+  );
+}
+
+/**
+ * Validate a project object
+ */
+function isValidProject(project: any): boolean {
+  if (!project || typeof project !== 'object') {
+    return false;
+  }
+
+  return (
+    typeof project.id === 'string' &&
+    typeof project.name === 'string' &&
+    typeof project.createdAt === 'string' &&
+    typeof project.updatedAt === 'string' &&
+    Array.isArray(project.variations) &&
+    project.variations.length > 0 &&
+    project.variations.every(isValidVariation)
+  );
+}
+
+/**
+ * Parse and validate projects state from JSON string
+ */
+export function parseProjectsState(jsonString: string): ValidationResult<ProjectsState> {
+  let parsed: any;
+
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (e) {
+    return {
+      valid: false,
+      error: `Invalid JSON: ${e instanceof Error ? e.message : 'Unknown error'}`
+    };
+  }
+
+  // Validate structure
+  if (!parsed || typeof parsed !== 'object') {
+    return { valid: false, error: 'JSON must be an object' };
+  }
+
+  if (!parsed.projects) {
+    return { valid: false, error: 'Missing "projects" property' };
+  }
+
+  if (!Array.isArray(parsed.projects)) {
+    return { valid: false, error: '"projects" must be an array' };
+  }
+
+  // Validate each project
+  for (let i = 0; i < parsed.projects.length; i++) {
+    if (!isValidProject(parsed.projects[i])) {
+      return {
+        valid: false,
+        error: `Invalid project at index ${i}. Must have id, name, createdAt, updatedAt, and at least one variation.`
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    data: {
+      projects: parsed.projects,
+      currentProjectId: parsed.currentProjectId || null,
+      currentVariationId: parsed.currentVariationId || null,
+      selectedObjectId: null
+    }
+  };
+}
+
+/**
+ * Serialize projects state to JSON string (pretty-printed)
+ */
+export function serializeProjectsState(state: ProjectsState): string {
+  const simplified = {
+    projects: state.projects,
+    currentProjectId: state.currentProjectId,
+    currentVariationId: state.currentVariationId
   };
 
   return JSON.stringify(simplified, null, 2);
