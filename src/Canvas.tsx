@@ -37,6 +37,7 @@ interface CanvasProps {
   onUpdatePolygonEditState: (state: PolygonEditState | null) => void;
   onUpdateSpaceOutline: (outline: Polygon) => void;
   onUpdateObjectShape: (id: string, shape: Polygon) => void;
+  onResetViewReady?: (resetView: () => void) => void;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -49,7 +50,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   polygonEditState,
   onUpdatePolygonEditState,
   onUpdateSpaceOutline,
-  onUpdateObjectShape
+  onUpdateObjectShape,
+  onResetViewReady
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,8 +79,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [mousePosition, setMousePosition] = useState<ScreenPoint | null>(null);
   const [vertexDragStart, setVertexDragStart] = useState<Point | null>(null);
 
-  // Calculate initial viewport to fit space
-  useEffect(() => {
+  // Track if viewport has been initialized
+  const viewportInitialized = useRef(false);
+
+  // Function to reset viewport to fit space
+  const resetViewport = React.useCallback(() => {
     if (!containerRef.current) return;
 
     const bounds = getPolygonBounds(space.outline);
@@ -92,14 +97,29 @@ export const Canvas: React.FC<CanvasProps> = ({
     const scaleY = containerHeight / (spaceHeight * 1.2);
     const baseScale = Math.min(scaleX, scaleY);
 
-    setViewport(prev => ({
-      ...prev,
+    setViewport({
       offsetX: -(bounds.minX / 10) + (containerWidth / baseScale - spaceWidth) / 2,
       offsetY: -(bounds.minY / 10) + (containerHeight / baseScale - spaceHeight) / 2,
       baseScale,
-      scale: baseScale
-    }));
+      scale: baseScale,
+      zoomLevel: 1
+    });
   }, [space]);
+
+  // Calculate initial viewport to fit space (only on mount)
+  useEffect(() => {
+    if (!viewportInitialized.current) {
+      resetViewport();
+      viewportInitialized.current = true;
+    }
+  }, [resetViewport]);
+
+  // Expose reset view function to parent
+  useEffect(() => {
+    if (onResetViewReady) {
+      onResetViewReady(resetViewport);
+    }
+  }, [onResetViewReady, resetViewport]);
 
   // Helper functions for polygon editing
   const getEditingPolygonWorldPoints = (): Point[] | null => {

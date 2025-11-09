@@ -10,6 +10,7 @@ interface PolygonDesignerProps {
   onEnterEditMode: (target: 'space' | 'object', objectId?: string) => void;
   onExitEditMode: () => void;
   onMeasurementInput: (edgeIndex: number, value: number) => void;
+  onResetView: (() => void) | null;
   currentPolygonPoints: Point[];
 }
 
@@ -18,6 +19,7 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
   onEnterEditMode,
   onExitEditMode,
   onMeasurementInput,
+  onResetView,
   currentPolygonPoints
 }) => {
   const [measurementValue, setMeasurementValue] = React.useState<string>('');
@@ -83,6 +85,7 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
             display: 'block',
             width: '100%',
             padding: '8px 12px',
+            marginBottom: '8px',
             backgroundColor: '#6b7280',
             color: 'white',
             border: 'none',
@@ -93,6 +96,25 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
         >
           Edit Selected Object
         </button>
+        {onResetView && (
+          <button
+            onClick={onResetView}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '8px 12px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+            title="Reset view to center on space"
+          >
+            Reset View
+          </button>
+        )}
       </div>
     );
   }
@@ -113,20 +135,39 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
           Editing {editState.target.type === 'space' ? 'Space' : 'Object'}
         </h3>
-        <button
-          onClick={onExitEditMode}
-          style={{
-            padding: '4px 8px',
-            backgroundColor: '#ef4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px'
-          }}
-        >
-          Exit
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {onResetView && (
+            <button
+              onClick={onResetView}
+              style={{
+                padding: '4px 8px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+              title="Reset view to center on space"
+            >
+              Reset View
+            </button>
+          )}
+          <button
+            onClick={onExitEditMode}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Exit
+          </button>
+        </div>
       </div>
 
       <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>

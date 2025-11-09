@@ -94,6 +94,7 @@ export const App: React.FC = () => {
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [polygonEditState, setPolygonEditState] = useState<PolygonEditState | null>(null);
+  const [resetViewFn, setResetViewFn] = useState<(() => void) | null>(null);
 
   // Save to localStorage whenever appState changes
   useEffect(() => {
@@ -490,12 +491,14 @@ export const App: React.FC = () => {
             onUpdatePolygonEditState={setPolygonEditState}
             onUpdateSpaceOutline={handleUpdateSpaceOutline}
             onUpdateObjectShape={handleUpdateObjectShape}
+            onResetViewReady={(resetFn) => setResetViewFn(() => resetFn)}
           />
           <PolygonDesigner
             editState={polygonEditState}
             onEnterEditMode={handleEnterPolygonEditMode}
             onExitEditMode={handleExitPolygonEditMode}
             onMeasurementInput={handleMeasurementInput}
+            onResetView={resetViewFn}
             currentPolygonPoints={
               polygonEditState
                 ? polygonEditState.target.type === 'space'
