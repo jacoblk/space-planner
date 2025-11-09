@@ -429,17 +429,18 @@ export const Canvas: React.FC<CanvasProps> = ({
     // Handle pinch-to-zoom
     if (e.touches.length === 2 && initialPinchDistance && initialPinchCenter) {
       const currentDistance = getTouchDistance(e.touches[0], e.touches[1], rect);
+      const currentCenter = getTouchCenter(e.touches[0], e.touches[1], rect);
 
       // Calculate zoom change
       const zoomChange = currentDistance / initialPinchDistance;
       const newZoomLevel = Math.max(0.1, Math.min(10, initialPinchZoom * zoomChange));
 
-      // Get world point before zoom at pinch center
-      const worldBefore = screenToWorld(initialPinchCenter.x, initialPinchCenter.y, viewport);
+      // Get world point before zoom at current pinch center
+      const worldBefore = screenToWorld(currentCenter.x, currentCenter.y, viewport);
 
-      // Get world point after zoom
+      // Get world point after zoom at current pinch center
       const newViewport = { ...viewport, zoomLevel: newZoomLevel };
-      const worldAfter = screenToWorld(initialPinchCenter.x, initialPinchCenter.y, newViewport);
+      const worldAfter = screenToWorld(currentCenter.x, currentCenter.y, newViewport);
 
       // Adjust offset to keep pinch center steady
       const offsetDx = (worldAfter.x - worldBefore.x) / 10;

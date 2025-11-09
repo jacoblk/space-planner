@@ -219,7 +219,8 @@ export const App: React.FC = () => {
         display: 'flex',
         height: '100vh',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        position: 'relative'
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
       {/* Left sidebar - hidden on mobile unless toggled */}
