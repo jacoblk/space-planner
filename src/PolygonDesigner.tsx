@@ -27,6 +27,7 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
   onToggleLabels
 }) => {
   const [measurementValue, setMeasurementValue] = React.useState<string>('');
+  const [isCollapsed, setIsCollapsed] = React.useState<boolean>(false);
 
   const handleMeasurementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,89 +56,112 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
         top: '10px',
         right: '10px',
         backgroundColor: 'white',
-        padding: '15px',
+        padding: isCollapsed ? '8px' : '15px',
         borderRadius: '8px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        zIndex: 1000
+        zIndex: 1000,
+        transition: 'all 0.2s ease'
       }}>
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>
-          Polygon Designer
-        </h3>
-        <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#666' }}>
-          Select what to edit:
-        </p>
-        <button
-          onClick={() => onEnterEditMode('space')}
-          style={{
-            display: 'block',
-            width: '100%',
-            padding: '8px 12px',
-            marginBottom: '8px',
-            backgroundColor: '#4080ff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px'
-          }}
-        >
-          Edit Space Outline
-        </button>
-        <button
-          onClick={() => onEnterEditMode('object')}
-          style={{
-            display: 'block',
-            width: '100%',
-            padding: '8px 12px',
-            marginBottom: '8px',
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px'
-          }}
-        >
-          Edit Selected Object
-        </button>
-        {onResetView && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCollapsed ? '0' : '10px' }}>
+          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
+            Polygon Designer
+          </h3>
           <button
-            onClick={onResetView}
+            onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              display: 'block',
-              width: '100%',
-              padding: '8px 12px',
-              marginBottom: '8px',
-              backgroundColor: '#10b981',
+              padding: '4px 8px',
+              backgroundColor: '#6b7280',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
+              marginLeft: '8px'
             }}
-            title="Reset view to center on space"
+            title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
           >
-            Reset View
+            {isCollapsed ? '▼' : '▲'}
           </button>
-        )}
-        {onToggleLabels && (
-          <button
-            onClick={onToggleLabels}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '8px 12px',
-              backgroundColor: showLabels ? '#f59e0b' : '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-            title={showLabels ? 'Hide object labels' : 'Show object labels'}
-          >
-            {showLabels ? 'Hide Labels' : 'Show Labels'}
-          </button>
+        </div>
+        {!isCollapsed && (
+          <>
+            <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#666' }}>
+              Select what to edit:
+            </p>
+            <button
+              onClick={() => onEnterEditMode('space')}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '8px 12px',
+                marginBottom: '8px',
+                backgroundColor: '#4080ff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              Edit Space Outline
+            </button>
+            <button
+              onClick={() => onEnterEditMode('object')}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '8px 12px',
+                marginBottom: '8px',
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              Edit Selected Object
+            </button>
+            {onResetView && (
+              <button
+                onClick={onResetView}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 12px',
+                  marginBottom: '8px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title="Reset view to center on space"
+              >
+                Reset View
+              </button>
+            )}
+            {onToggleLabels && (
+              <button
+                onClick={onToggleLabels}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 12px',
+                  backgroundColor: showLabels ? '#f59e0b' : '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title={showLabels ? 'Hide object labels' : 'Show object labels'}
+              >
+                {showLabels ? 'Hide Labels' : 'Show Labels'}
+              </button>
+            )}
+          </>
         )}
       </div>
     );
@@ -149,18 +173,34 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
       top: '10px',
       right: '10px',
       backgroundColor: 'white',
-      padding: '15px',
+      padding: isCollapsed ? '8px' : '15px',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       zIndex: 1000,
-      minWidth: '250px'
+      minWidth: isCollapsed ? 'auto' : '250px',
+      transition: 'all 0.2s ease'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCollapsed ? '0' : '10px' }}>
         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
           Editing {editState.target.type === 'space' ? 'Space' : 'Object'}
         </h3>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {onResetView && (
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+            title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
+          >
+            {isCollapsed ? '▼' : '▲'}
+          </button>
+          {!isCollapsed && onResetView && (
             <button
               onClick={onResetView}
               style={{
@@ -177,79 +217,85 @@ export const PolygonDesigner: React.FC<PolygonDesignerProps> = ({
               Reset View
             </button>
           )}
-          <button
-            onClick={onExitEditMode}
-            style={{
-              padding: '4px 8px',
-              backgroundColor: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            Exit
-          </button>
-        </div>
-      </div>
-
-      <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-        <p style={{ margin: '0 0 5px 0' }}>
-          <strong>Drag vertices</strong> to adjust shape
-        </p>
-        <p style={{ margin: '0 0 5px 0' }}>
-          <strong>Click edges</strong> to add vertices
-        </p>
-        <p style={{ margin: '0' }}>
-          <strong>Click edge + Enter length</strong> to set measurement
-        </p>
-      </div>
-
-      {editState.measurementEdgeIndex !== null && (
-        <form onSubmit={handleMeasurementSubmit} style={{ marginTop: '10px' }}>
-          <div style={{ marginBottom: '8px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-              Edge {editState.measurementEdgeIndex + 1} Length (inches):
-            </label>
-            <input
-              type="number"
-              step="0.1"
-              value={measurementValue}
-              onChange={(e) => setMeasurementValue(e.target.value)}
-              placeholder={calculateEdgeLength(editState.measurementEdgeIndex).toFixed(1)}
-              autoFocus
+          {!isCollapsed && (
+            <button
+              onClick={onExitEditMode}
               style={{
-                width: '100%',
-                padding: '6px',
-                border: '1px solid #d1d5db',
+                padding: '4px 8px',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
                 borderRadius: '4px',
+                cursor: 'pointer',
                 fontSize: '12px'
               }}
-            />
-          </div>
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '6px',
-              backgroundColor: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            Apply Length
-          </button>
-        </form>
-      )}
-
-      {currentPolygonPoints && currentPolygonPoints.length > 0 && (
-        <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
-          <strong>Vertices:</strong> {currentPolygonPoints.length}
+            >
+              Exit
+            </button>
+          )}
         </div>
+      </div>
+
+      {!isCollapsed && (
+        <>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+            <p style={{ margin: '0 0 5px 0' }}>
+              <strong>Drag vertices</strong> to adjust shape
+            </p>
+            <p style={{ margin: '0 0 5px 0' }}>
+              <strong>Click edges</strong> to add vertices
+            </p>
+            <p style={{ margin: '0' }}>
+              <strong>Click edge + Enter length</strong> to set measurement
+            </p>
+          </div>
+
+          {editState.measurementEdgeIndex !== null && (
+            <form onSubmit={handleMeasurementSubmit} style={{ marginTop: '10px' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                  Edge {editState.measurementEdgeIndex + 1} Length (inches):
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={measurementValue}
+                  onChange={(e) => setMeasurementValue(e.target.value)}
+                  placeholder={calculateEdgeLength(editState.measurementEdgeIndex).toFixed(1)}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  padding: '6px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                Apply Length
+              </button>
+            </form>
+          )}
+
+          {currentPolygonPoints && currentPolygonPoints.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: '#666' }}>
+              <strong>Vertices:</strong> {currentPolygonPoints.length}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
