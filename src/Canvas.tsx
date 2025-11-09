@@ -724,6 +724,37 @@ export const Canvas: React.FC<CanvasProps> = ({
       const screenY = touch.clientY - rect.top;
       const screenPoint: ScreenPoint = { x: screenX, y: screenY };
 
+      // Handle polygon editing mode
+      if (polygonEditState) {
+        // Check if touching a vertex
+        const vertexIndex = findVertexAtPoint(screenPoint);
+        if (vertexIndex !== null) {
+          setMode('dragging-vertex');
+          const worldPoints = getEditingPolygonWorldPoints();
+          if (worldPoints) {
+            setVertexDragStart(worldPoints[vertexIndex]);
+            onUpdatePolygonEditState({
+              ...polygonEditState,
+              draggedVertexIndex: vertexIndex,
+              measurementEdgeIndex: null
+            });
+          }
+          setDragStart(screenPoint);
+          return;
+        }
+
+        // Check if touching an edge
+        const edgeIndex = findEdgeAtPoint(screenPoint);
+        if (edgeIndex !== null) {
+          // For touch, we don't have shift key, so just select edge for measurement
+          onUpdatePolygonEditState({
+            ...polygonEditState,
+            measurementEdgeIndex: edgeIndex
+          });
+          return;
+        }
+      }
+
       // Check if touching rotation handle
       const selectedObject = objects.find(obj => obj.id === selectedObjectId);
       if (selectedObject && isPointOnRotationHandle(screenPoint, selectedObject, viewport)) {
@@ -800,6 +831,47 @@ export const Canvas: React.FC<CanvasProps> = ({
       const screenX = touch.clientX - rect.left;
       const screenY = touch.clientY - rect.top;
 
+      // Handle vertex dragging
+      if (mode === 'dragging-vertex' && polygonEditState && vertexDragStart) {
+        const dx = screenX - dragStart.x;
+        const dy = screenY - dragStart.y;
+
+        const worldDx = dx / (viewport.scale * viewport.zoomLevel) * 10;
+        const worldDy = dy / (viewport.scale * viewport.zoomLevel) * 10;
+
+        const newPoint: Point = {
+          x: Math.round(vertexDragStart.x + worldDx),
+          y: Math.round(vertexDragStart.y + worldDy)
+        };
+
+        const worldPoints = getEditingPolygonWorldPoints();
+        if (worldPoints && polygonEditState.draggedVertexIndex !== null) {
+          const newPoints = [...worldPoints];
+          newPoints[polygonEditState.draggedVertexIndex] = newPoint;
+
+          if (polygonEditState.target.type === 'space') {
+            onUpdateSpaceOutline({ points: newPoints });
+          } else {
+            // For objects, convert back to object-local coordinates
+            const targetObjectId = (polygonEditState.target as { type: 'object'; objectId: string }).objectId;
+            const obj = objects.find(o => o.id === targetObjectId);
+            if (obj) {
+              const localPoints = newPoints.map(p => {
+                const dx = p.x - obj.position.x;
+                const dy = p.y - obj.position.y;
+                const angle = -obj.rotation * Math.PI / 180;
+                return {
+                  x: Math.round(dx * Math.cos(angle) - dy * Math.sin(angle)),
+                  y: Math.round(dx * Math.sin(angle) + dy * Math.cos(angle))
+                };
+              });
+              onUpdateObjectShape(targetObjectId, { points: localPoints });
+            }
+          }
+        }
+        return;
+      }
+
       if (mode === 'dragging-object' && draggedObjectId && dragObjectStartPos) {
         const dx = screenX - dragStart.x;
         const dy = screenY - dragStart.y;
@@ -863,10 +935,17 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     // Reset drag state when all fingers are lifted
     if (e.touches.length === 0) {
+      if (polygonEditState && polygonEditState.draggedVertexIndex !== null) {
+        onUpdatePolygonEditState({
+          ...polygonEditState,
+          draggedVertexIndex: null
+        });
+      }
       setMode('idle');
       setDragStart(null);
       setDraggedObjectId(null);
       setDragObjectStartPos(null);
+      setVertexDragStart(null);
     }
   };
 
